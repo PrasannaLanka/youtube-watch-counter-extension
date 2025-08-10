@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube History Analyzer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        text-align: center;
+        background: #fafafa;
+    }
+    input {
+        margin: 20px 0;
+    }
+    canvas {
+        max-width: 800px;
+        margin: auto;
+    }
+</style>
+</head>
+<body>
+
+<h1>YouTube History Analyzer</h1>
+<p>Upload your <b>watch-history.html</b> from Google Takeout</p>
+
+<input type="file" id="fileInput" accept=".html,.json">
+<canvas id="channelChart"></canvas>
+
+<script>
+document.getElementById('fileInput').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        if (file.name.endsWith(".json")) {
+            try {
+                const data = JSON.parse(e.target.result);
+                processJsonHistory(data);
+            } catch {
+                alert("Invalid JSON file");
+            }
+        } else if (file.name.endsWith(".html")) {
+            processHtmlHistory(e.target.result);
+        } else {
+            alert("Unsupported file type");
+        }
+    };
+    reader.readAsText(file);
+});
+
+function processJsonHistory(history) {
+    const channelCounts = {};
+
+    history.forEach(entry => {
+        if (entry.subtitles && entry.subtitles.length > 0) {
+            const channel = entry.subtitles[0].name;
+            channelCounts[channel] = (channelCounts[channel] || 0) + 1;
+        }
+    });
+
+    showTopChannels(channelCounts);
+}
+
+function processHtmlHistory(htmlString) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, "text/html");
+
+    const channelCounts = {};
+    const items = doc.querySelectorAll("a");
+
+    items.forEach(link => {
+        const href = link.getAttribute("href") || "";
+        if (href.includes("channel/") || href.includes("user/") || href.includes("c/")) {
+            const channelName = link.textContent.trim();
+            if (channelName && channelName !== "YouTube") {
+                channelCounts[channelName] = (channelCounts[channelName] || 0) + 1;
+            }
+        }
+    });
+
+    showTopChannels(channelCounts);
+}
+
+function showTopChannels(channelCounts) {
+    const sorted = Object.entries(channelCounts)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 10);
+
+    const labels = sorted.map(item => item[0]);
+    const counts = sorted.map(item => item[1]);
+
+    renderChart(labels, counts);
+}
+
+function renderChart(labels, counts) {
+    new Chart(document.getElementById('channelChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Videos Watched',
+                data: counts,
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+</script>
+
+</body>
+</html>
