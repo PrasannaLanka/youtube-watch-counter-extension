@@ -8,28 +8,62 @@
 <style>
     body {
         font-family: Arial, sans-serif;
-        margin: 20px;
-        text-align: center;
-        background: #fafafa;
+        background: #f5f7fa;
+        margin: 0;
+        padding: 0;
     }
-    input {
-        margin: 20px 0;
+    .container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 20px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    h1 {
+        margin-bottom: 10px;
+        color: #333;
+    }
+    p {
+        color: #555;
+    }
+    input[type="file"], input[type="text"] {
+        margin: 15px 0;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 16px;
     }
     canvas {
-        max-width: 800px;
-        margin: auto;
+        max-width: 100%;
+        margin-top: 30px;
+    }
+    .result {
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #444;
     }
 </style>
 </head>
 <body>
 
-<h1>YouTube History Analyzer</h1>
-<p>Upload your <b>watch-history.html</b> from Google Takeout</p>
+<div class="container">
+    <h1>YouTube History Analyzer</h1>
+    <p>Upload your <b>watch-history.html</b> or <b>watch-history.json</b> from Google Takeout</p>
 
-<input type="file" id="fileInput" accept=".html,.json">
-<canvas id="channelChart"></canvas>
+    <input type="file" id="fileInput" accept=".html,.json"><br>
+    <input type="text" id="searchInput" placeholder="Search channel name...">
+
+    <div class="result" id="searchResult"></div>
+
+    <canvas id="channelChart"></canvas>
+</div>
 
 <script>
+let channelData = {}; // {channelName: Set of unique videoTitles}
+
 document.getElementById('fileInput').addEventListener('change', function(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -52,61 +86,72 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
     reader.readAsText(file);
 });
 
-function processJsonHistory(history) {
-    const channelCounts = {};
+function addToChannelData(channel, videoTitle) {
+    if (!channelData[channel]) {
+        channelData[channel] = new Set();
+    }
+    channelData[channel].add(videoTitle);
+}
 
+function processJsonHistory(history) {
+    channelData = {};
     history.forEach(entry => {
-        if (entry.subtitles && entry.subtitles.length > 0) {
-            const channel = entry.subtitles[0].name;
-            channelCounts[channel] = (channelCounts[channel] || 0) + 1;
+        if (entry.subtitles && entry.subtitles.length > 0 && entry.title) {
+            const channel = entry.subtitles[0].name.trim();
+            const videoTitle = entry.title.trim();
+            addToChannelData(channel, videoTitle);
         }
     });
-
-    showTopChannels(channelCounts);
+    updateChart();
 }
 
 function processHtmlHistory(htmlString) {
+    channelData = {};
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, "text/html");
+    const items = doc.querySelectorAll("div.content-cell");
 
-    const channelCounts = {};
-    const items = doc.querySelectorAll("a");
-
-    items.forEach(link => {
-        const href = link.getAttribute("href") || "";
-        if (href.includes("channel/") || href.includes("user/") || href.includes("c/")) {
-            const channelName = link.textContent.trim();
-            if (channelName && channelName !== "YouTube") {
-                channelCounts[channelName] = (channelCounts[channelName] || 0) + 1;
+    items.forEach(item => {
+        const videoLink = item.querySelector("a");
+        const channelLink = item.querySelectorAll("a")[1]; // usually the channel is second link
+        if (videoLink && channelLink) {
+            const videoTitle = videoLink.textContent.trim();
+            const channel = channelLink.textContent.trim();
+            if (channel && videoTitle) {
+                addToChannelData(channel, videoTitle);
             }
         }
     });
-
-    showTopChannels(channelCounts);
+    updateChart();
 }
 
-function showTopChannels(channelCounts) {
-    const sorted = Object.entries(channelCounts)
+function updateChart() {
+    const counts = Object.entries(channelData)
+        .map(([channel, videos]) => [channel, videos.size])
         .sort((a,b) => b[1] - a[1])
         .slice(0, 10);
 
-    const labels = sorted.map(item => item[0]);
-    const counts = sorted.map(item => item[1]);
+    const labels = counts.map(item => item[0]);
+    const values = counts.map(item => item[1]);
 
-    renderChart(labels, counts);
+    renderChart(labels, values);
 }
 
 function renderChart(labels, counts) {
-    new Chart(document.getElementById('channelChart'), {
+    if (window.channelChartInstance) {
+        window.channelChartInstance.destroy();
+    }
+    window.channelChartInstance = new Chart(document.getElementById('channelChart'), {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Videos Watched',
+                label: 'Unique Videos Watched',
                 data: counts,
-                backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
+                backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1,
+                borderRadius: 5
             }]
         },
         options: {
@@ -120,6 +165,27 @@ function renderChart(labels, counts) {
         }
     });
 }
+
+// Search feature
+document.getElementById('searchInput').addEventListener('input', function() {
+    const query = this.value.trim().toLowerCase();
+    const resultDiv = document.getElementById('searchResult');
+    if (!query) {
+        resultDiv.textContent = "";
+        return;
+    }
+    let found = false;
+    for (let channel in channelData) {
+        if (channel.toLowerCase().includes(query)) {
+            found = true;
+            resultDiv.textContent = `You have watched ${channelData[channel].size} unique videos from "${channel}"`;
+            break;
+        }
+    }
+    if (!found) {
+        resultDiv.textContent = "No matching channel found.";
+    }
+});
 </script>
 
 </body>
