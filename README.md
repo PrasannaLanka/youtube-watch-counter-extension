@@ -38,10 +38,6 @@ No login is required — all processing happens in your browser. We respect your
 git clone https://github.com/PrasannaLanka/youtube-watch-history-analyzer.git
 
 # 2. Open the project folder
-cd yourrepo
+cd youtube-watch-history-analyzer
 
-# 3. Install dependencies (if applicable)
-npm install
-
-# 4. Run locally
-npm start
+# 3. Open index.html in your browser
