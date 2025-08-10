@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Analyze your YouTube watch history from Google Takeout — top channels, unique counts and charts.">
 <title>YouTube History Analyzer</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -45,13 +46,37 @@
         font-weight: bold;
         color: #444;
     }
+    .instructions {
+        text-align: left;
+        background: #eef6ff;
+        border-left: 5px solid #007BFF;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 6px;
+        font-size: 15px;
+    }
+    .instructions ol {
+        padding-left: 20px;
+    }
 </style>
 </head>
 <body>
 
 <div class="container">
     <h1>YouTube History Analyzer</h1>
-    <p>Upload your <b>watch-history.html</b> or <b>watch-history.json</b> from Google Takeout</p>
+    <div class="instructions">
+        <strong>How to get your YouTube Watch History file:</strong>
+        <ol>
+            <li>Go to <a href="https://takeout.google.com/" target="_blank">Google Takeout</a>.</li>
+            <li>Click <b>Deselect all</b>, then scroll down and check <b>YouTube and YouTube Music</b>.</li>
+            <li>Click on <b>All YouTube data included</b> → select only <b>History</b> → click OK.</li>
+            <li>Scroll to the bottom and click <b>Next step</b>.</li>
+            <li>Choose <b>.zip</b> format and click <b>Create export</b>.</li>
+            <li>Once ready, download and extract the .zip file.</li>
+            <li>Find the file <b>watch-history.html</b> (or <b>watch-history.json</b>).</li>
+            <li>Upload it below to see your stats!</li>
+        </ol>
+    </div>
 
     <input type="file" id="fileInput" accept=".html,.json"><br>
     <input type="text" id="searchInput" placeholder="Search channel name...">
@@ -62,7 +87,7 @@
 </div>
 
 <script>
-let channelData = {}; // {channelName: Set of unique videoTitles}
+let channelData = {};
 
 document.getElementById('fileInput').addEventListener('change', function(event) {
     const file = event.target.files[0];
@@ -113,7 +138,7 @@ function processHtmlHistory(htmlString) {
 
     items.forEach(item => {
         const videoLink = item.querySelector("a");
-        const channelLink = item.querySelectorAll("a")[1]; // usually the channel is second link
+        const channelLink = item.querySelectorAll("a")[1];
         if (videoLink && channelLink) {
             const videoTitle = videoLink.textContent.trim();
             const channel = channelLink.textContent.trim();
@@ -166,7 +191,6 @@ function renderChart(labels, counts) {
     });
 }
 
-// Search feature
 document.getElementById('searchInput').addEventListener('input', function() {
     const query = this.value.trim().toLowerCase();
     const resultDiv = document.getElementById('searchResult');
